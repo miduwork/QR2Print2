@@ -47,7 +47,14 @@ export async function getOrderById(id: string): Promise<GetOrderByIdResult> {
     return { ok: false, kind: "error", error };
   }
 
-  return { ok: true, order: data as OrderPaymentRow };
+  const row = data as OrderPaymentRow;
+  return {
+    ok: true,
+    order: {
+      ...row,
+      payment_status: row.payment_status?.trim() ?? null,
+    },
+  };
 }
 
 function logOrdersServerInsertError(context: string, error: PostgrestError) {
