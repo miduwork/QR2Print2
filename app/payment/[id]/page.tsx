@@ -53,6 +53,7 @@ export default function PaymentPage() {
     let cancelled = false;
     let unsubscribeRealtime: (() => void) | undefined;
     let fallbackPoll: ReturnType<typeof setInterval> | undefined;
+    let visibilityHandler: (() => void) | undefined;
 
     function clearTimersAndRealtime() {
       if (unsubscribeRealtime) {
@@ -68,7 +69,13 @@ export default function PaymentPage() {
     async function fetchOrder(showLoading = false): Promise<Order | null> {
       if (showLoading) setLoading(true);
       try {
-        const res = await fetch(`/api/orders/${id}`, { cache: "no-store" });
+        const res = await fetch(`/api/orders/${id}`, {
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache",
+            Pragma: "no-cache",
+          },
+        });
         if (!res.ok) {
           if (res.status === 404) {
             if (!cancelled) {
@@ -114,7 +121,14 @@ export default function PaymentPage() {
 
       unsubscribeRealtime = subscribeOrderUpdates(id, (next) => {
         if (cancelled) return;
-        setOrder((prev) => ({ ...(prev ?? {}), ...next } as Order));
+        setOrder((prev) => {
+          const p = prev ?? ({} as Order);
+          const merged = { ...p, ...next } as Order;
+          if (next.payment_status === undefined && p.payment_status != null) {
+            merged.payment_status = p.payment_status;
+          }
+          return merged;
+        });
         if (next.payment_status === PAYMENT_STATUS_PAID) {
           isPaidRef.current = true;
           clearTimersAndRealtime();
@@ -125,11 +139,25 @@ export default function PaymentPage() {
         if (cancelled || isPaidRef.current) return;
         void fetchOrder(false);
       }, FALLBACK_POLL_MS);
+
+      visibilityHandler = () => {
+        if (
+          document.visibilityState === "visible" &&
+          !isPaidRef.current &&
+          !cancelled
+        ) {
+          void fetchOrder(false);
+        }
+      };
+      document.addEventListener("visibilitychange", visibilityHandler);
     })();
 
     return () => {
       cancelled = true;
       clearTimersAndRealtime();
+      if (visibilityHandler) {
+        document.removeEventListener("visibilitychange", visibilityHandler);
+      }
     };
   }, [id]);
 
