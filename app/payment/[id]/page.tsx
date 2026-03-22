@@ -27,8 +27,8 @@ import {
 } from "@/components/order-form/formStyles";
 
 const PAYMENT_STATUS_PAID = "Đã thanh toán";
-/** Dự phòng nếu Realtime/RLS chưa nhận được UPDATE (ít gọi hơn poll 5s cũ). */
-const FALLBACK_POLL_MS = 45_000;
+/** Dự phòng nếu Realtime chưa bắt được UPDATE — poll ngắn để sau webhook vài giây vẫn thấy đã thanh toán. */
+const FALLBACK_POLL_MS = 5_000;
 
 export default function PaymentPage() {
   const params = useParams();
@@ -68,7 +68,7 @@ export default function PaymentPage() {
     async function fetchOrder(showLoading = false): Promise<Order | null> {
       if (showLoading) setLoading(true);
       try {
-        const res = await fetch(`/api/orders/${id}`);
+        const res = await fetch(`/api/orders/${id}`, { cache: "no-store" });
         if (!res.ok) {
           if (res.status === 404) {
             if (!cancelled) {

@@ -33,4 +33,12 @@ describe("normalizeSePayPayload — số tiền", () => {
     });
     expect(transferAmount).toBe(1500000);
   });
+
+  it("thiếu transferType nhưng có số tiền dương → coi là tiền vào", () => {
+    const { transferTypeNorm, transferAmount } = normalizeSePayPayload({
+      transferAmount: 2000,
+    });
+    expect(transferTypeNorm).toBe("in");
+    expect(transferAmount).toBe(2000);
+  });
 });

@@ -105,6 +105,11 @@ export function normalizeSePayPayload(
     coerceAmount(body.amount) ??
     0;
 
+  // Webhook chỉ bật "tiền vào" nhưng một payload SePay/BankHub thiếu transferType → trước đây thành "other" và bị bỏ qua.
+  if (transferTypeNorm === "other" && amt > 0) {
+    transferTypeNorm = "in";
+  }
+
   return { transferTypeNorm, transferAmount: amt };
 }
 
