@@ -25,7 +25,8 @@ export type SePayWebhookPayload = {
   transferType?: string;
   /** BankHub: tiền vào = "credit", ra = "debit" */
   transfer_type?: string;
-  transferAmount?: number;
+  /** JSON runtime có thể là number hoặc chuỗi (vd. "2.000" VNĐ). */
+  transferAmount?: number | string;
   /** BankHub: số tiền giao dịch */
   amount?: number | string;
   accumulated?: number;
@@ -66,10 +67,21 @@ function extractOrderIdPrefix(text: string | null | undefined): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
+/**
+ * SePay / UI VN có thể gửi số tiền dạng chuỗi với dấu chấm phân nghìn (vd. "2.000").
+ * Trong JS, parseFloat("2.000") === 2 — sai với 2000 VND → phải bỏ dấu chấm nhóm nghìn.
+ */
 function coerceAmount(v: unknown): number | null {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "string" && v.trim() !== "") {
-    const n = parseFloat(v.replace(/\s/g, ""));
+    const s = v.replace(/\s/g, "");
+    if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+      return parseInt(s.replace(/\./g, ""), 10);
+    }
+    if (/^\d+$/.test(s)) {
+      return parseInt(s, 10);
+    }
+    const n = parseFloat(s);
     return Number.isFinite(n) ? n : null;
   }
   return null;
@@ -162,10 +174,11 @@ export async function handleSePayWebhook(
     return { ok: true, status: 200, message: "No order code in content" };
   }
 
+  // UUID không dùng được ilike trực tiếp — PostgREST trả 0 dòng. Phải so khớp trên id::text.
   const { data: orders, error: findError } = await admin
     .from("orders")
     .select("id, total_price, payment_status")
-    .ilike("id", `${orderIdPrefix}%`)
+    .ilike("id::text", `${orderIdPrefix}%`)
     .limit(2);
 
   if (findError || !orders?.length) {
