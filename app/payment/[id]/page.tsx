@@ -27,6 +27,12 @@ import {
 } from "@/components/order-form/formStyles";
 
 const PAYMENT_STATUS_PAID = "Đã thanh toán";
+
+function isPaidStatus(status: string | null | undefined): boolean {
+  if (status == null) return false;
+  return status.trim() === PAYMENT_STATUS_PAID;
+}
+
 /** Dự phòng nếu Realtime chưa bắt được UPDATE — poll ngắn để sau webhook vài giây vẫn thấy đã thanh toán. */
 const FALLBACK_POLL_MS = 5_000;
 
@@ -93,7 +99,7 @@ export default function PaymentPage() {
           setOrder(json.order);
           setError("");
           setLoading(false);
-          if (json.order.payment_status === PAYMENT_STATUS_PAID) {
+          if (isPaidStatus(json.order.payment_status)) {
             isPaidRef.current = true;
             clearTimersAndRealtime();
           }
@@ -115,7 +121,7 @@ export default function PaymentPage() {
       const initial = await fetchOrder(true);
       if (cancelled || !initial) return;
 
-      if (initial.payment_status === PAYMENT_STATUS_PAID) {
+      if (isPaidStatus(initial.payment_status)) {
         return;
       }
 
@@ -129,7 +135,7 @@ export default function PaymentPage() {
           }
           return merged;
         });
-        if (next.payment_status === PAYMENT_STATUS_PAID) {
+        if (isPaidStatus(next.payment_status)) {
           isPaidRef.current = true;
           clearTimersAndRealtime();
         }
@@ -216,7 +222,7 @@ export default function PaymentPage() {
   const downloadUrl = `/api/qr?amount=${encodeURIComponent(
     String(totalPrice || 0),
   )}&addInfo=${encodeURIComponent(addInfo)}`;
-  const isPaid = order.payment_status === PAYMENT_STATUS_PAID;
+  const isPaid = isPaidStatus(order.payment_status);
 
   if (isPaid) {
     return (
