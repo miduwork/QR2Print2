@@ -174,14 +174,17 @@ export async function handleSePayWebhook(
     return { ok: true, status: 200, message: "No order code in content" };
   }
 
-  // UUID không dùng được ilike trực tiếp — PostgREST trả 0 dòng. Phải so khớp trên id::text.
-  const { data: orders, error: findError } = await admin
-    .from("orders")
-    .select("id, total_price, payment_status")
-    .ilike("id::text", `${orderIdPrefix}%`)
-    .limit(2);
+  // PostgREST không áp ổn định filter `id::text` qua query string — dùng RPC (migration 20260322140000).
+  const { data: orderRows, error: findError } = await admin.rpc(
+    "match_orders_by_id_prefix",
+    { p_prefix: orderIdPrefix },
+  );
+  const orders = orderRows ?? [];
+  if (findError) {
+    console.error("Webhook SePay: match_orders_by_id_prefix", findError);
+  }
 
-  if (findError || !orders?.length) {
+  if (findError || !orders.length) {
     await admin.from("transactions").insert(
       payloadToTransaction(body, {
         order_id: null,

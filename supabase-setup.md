@@ -112,6 +112,10 @@ Chi tiết kế hoạch tích hợp: [docs/SEPAY-WEBHOOK-INTEGRATION-PLAN.md](do
 
 **Production (Vercel, VPS, v.v.):** thêm cùng tên biến trong bảng Environment của nền tảng deploy, áp dụng cho môi trường **Production**, rồi **Redeploy** sau khi sửa. Đảm bảo không lộ `WEBHOOK_SEPAY_API_KEY` / `SUPABASE_SERVICE_ROLE_KEY` trong log công khai hay bundle phía trình duyệt.
 
+### 5.2.1 Hàm SQL cho webhook (bắt buộc một lần)
+
+Webhook tìm đơn theo 8 ký tự đầu UUID qua hàm **`match_orders_by_id_prefix`** (PostgREST không áp ổn định filter `id::text` qua API). **Chạy một lần** trong Supabase **SQL Editor** → New query → mở file [`supabase/migrations/20260322140000_match_orders_by_id_prefix.sql`](supabase/migrations/20260322140000_match_orders_by_id_prefix.sql), dán toàn bộ → **Run**. Nếu thiếu bước này, SePay vẫn báo HTTP 200 nhưng `orders` không được cập nhật và trang thanh toán không đổi.
+
 ### 5.3 Cấu hình my.sepay.vn (WebHooks)
 
 1. Vào [my.sepay.vn/webhooks](https://my.sepay.vn/webhooks) → thêm/sửa webhook.
