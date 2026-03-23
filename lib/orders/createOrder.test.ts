@@ -15,7 +15,15 @@ vi.mock("@/lib/config/business", () => ({
   getFreeshipHintText: () => "",
 }));
 
+import {
+  defaultDeliveryConfig,
+  fullGridPricingConfigFallback,
+} from "@/lib/config/appConfigSchema";
+
 import { buildOrderPayload, validateOrderForm } from "./createOrder";
+import { PAPER_SIZES } from "./printJobSpec";
+
+const pricingFixture = fullGridPricingConfigFallback(500);
 
 function baseSnapshot() {
   return {
@@ -29,6 +37,21 @@ function baseSnapshot() {
     deliveryDetail: "123 Đường X",
     printColor: "bw" as const,
     printSides: "double" as const,
+    printJobKind: "document" as const,
+    docPaperSize: PAPER_SIZES[1],
+    docPaperGsm: "80",
+    docPageScope: "all" as const,
+    docRangeFrom: "1",
+    docRangeTo: "",
+    bookPaperSize: PAPER_SIZES[1],
+    bookBodyPages: "10",
+    bookBodyGsm: "80",
+    bookBodyColor: "bw" as const,
+    bookBodySides: "double" as const,
+    bookCoverPages: "2",
+    bookCoverGsm: "250",
+    bookCoverColor: "color" as const,
+    bookBinding: "spring_plastic" as const,
   };
 }
 
@@ -81,6 +104,15 @@ describe("buildOrderPayload", () => {
       deliveryDistrict: "w",
       printColor: "bw",
       printSides: "double",
+      orderSpec: {
+        v: 1,
+        kind: "document",
+        paperSize: "A4",
+        paperGsm: "80",
+        pageScope: "all",
+      },
+      pricing: pricingFixture,
+      deliveryConfig: defaultDeliveryConfig(),
     });
     expect(row.total_price).toBe(10_000);
     expect(row.shipping_fee).toBe(0);
@@ -104,11 +136,21 @@ describe("buildOrderPayload", () => {
       deliveryDistrict: "Phường X",
       printColor: "color",
       printSides: "single",
+      orderSpec: {
+        v: 1,
+        kind: "document",
+        paperSize: "A4",
+        paperGsm: "80",
+        pageScope: "all",
+      },
+      pricing: pricingFixture,
+      deliveryConfig: defaultDeliveryConfig(),
     });
     expect(row.delivery_method).toBe("delivery");
     expect(row.delivery_address).toContain("Số 1");
     expect(row.delivery_address).toContain("Phường X");
     expect(row.shipping_fee).toBe(20_000);
-    expect(row.total_price).toBe(2000 + 20_000);
+    const pppColorSingle = Math.round(500 * 1.5 * 0.8);
+    expect(row.total_price).toBe(4 * pppColorSingle + 20_000);
   });
 });

@@ -9,13 +9,58 @@
    - `SUPABASE_SERVICE_ROLE_KEY` — **service_role** (chỉ server, không commit lên git)
 3. Các biến khác (VietQR, SePay, giá in): xem comment trong `.env.local.example`.
 
-**Luồng code hiện tại:** form khách và admin (trình duyệt) dùng **anon key** qua [`lib/supabase/client.ts`](lib/supabase/client.ts); thao tác bảng `orders` gom trong [`lib/orders/repository.ts`](lib/orders/repository.ts). API `/api/orders/[id]` và webhook dùng **service role** trong [`lib/orders/repository.server.ts`](lib/orders/repository.server.ts) / [`lib/supabase/admin.ts`](lib/supabase/admin.ts).
+**Luồng code hiện tại:** form khách gọi API server; admin đọc/ghi đơn qua [`/api/admin/orders`](app/api/admin/orders/route.ts) (session cookie). API `/api/orders` và webhook dùng **service role** trong [`lib/orders/repository.server.ts`](lib/orders/repository.server.ts) / [`lib/supabase/admin.ts`](lib/supabase/admin.ts).
 
 ---
 
 ## 1. Tạo hoặc reset CSDL bằng một file SQL
 
-File **`supabase/schema.sql`** chứa toàn bộ định nghĩa CSDL của dự án.
+### 1.0 Nguồn sự thật (SSOT) — tránh lệch giữa nhiều file
+
+| Nguồn | Vai trò |
+|--------|---------|
+| **`supabase/migrations/*.sql`** | Thay đổi **tăng dần** trên DB đã deploy: mọi cột/policy/function mới **thêm file migration mới** (có prefix `YYYYMMDDHHMMSS_`). Đây là nguồn đúng cho lịch sử và review PR. |
+| **`supabase/schema.sql`** và **`supabase/reset_all.sql`** | **Snapshot** trạng thái **cuối** để dán trong SQL Editor (tạo mới hoặc xóa hết tạo lại). **Mỗi khi thêm/sửa migration**, cập nhật hai file này cho khớp (cùng cột, policy, function, storage, realtime). |
+| **`supabase/sql-editor-ui-schema-updates.sql`** | **Không** còn chứa ALTER trùng — chỉ hướng dẫn mở đúng file migration. |
+
+**Luồng gợi ý:** định nghĩa thay đổi trong `migrations/` → đồng bộ `schema.sql` + `reset_all.sql` → deploy theo checklist dưới.
+
+### 1.1 Thứ tự migration (sắp xếp theo tên file)
+
+Chạy **theo đúng thứ tự** sau (hoặc dùng Supabase CLI: [`supabase link`](https://supabase.com/docs/reference/cli/supabase-link) rồi [`supabase db push`](https://supabase.com/docs/reference/cli/supabase-db-push) — xem mục 1.3).
+
+| Thứ tự | File | Ghi chú ngắn |
+|--------|------|----------------|
+| 1 | [`supabase/migrations/20250322100000_add_print_options.sql`](supabase/migrations/20250322100000_add_print_options.sql) | Cột `print_color`, `print_sides` + COMMENT + UPDATE giá trị NULL. Cần bảng `orders` đã tồn tại. |
+| 2 | [`supabase/migrations/20250322120000_remove_anon_insert_orders.sql`](supabase/migrations/20250322120000_remove_anon_insert_orders.sql) | Gỡ policy insert cũ (nếu có). |
+| 3 | [`supabase/migrations/20250322130000_anon_select_orders_realtime.sql`](supabase/migrations/20250322130000_anon_select_orders_realtime.sql) | SELECT anon cho Realtime `/payment/[id]`. |
+| 4 | [`supabase/migrations/20250323000000_anon_insert_orders.sql`](supabase/migrations/20250323000000_anon_insert_orders.sql) | Policy `anon_insert_orders_public_form` (form gửi đơn). |
+| 5 | [`supabase/migrations/20260322120000_orders_rls_admin_app_metadata.sql`](supabase/migrations/20260322120000_orders_rls_admin_app_metadata.sql) | Admin chỉ khi `app_metadata.role = 'admin'`. |
+| 6 | [`supabase/migrations/20260322140000_match_orders_by_id_prefix.sql`](supabase/migrations/20260322140000_match_orders_by_id_prefix.sql) | RPC `match_orders_by_id_prefix` (webhook SePay). Cần bảng `orders`. |
+| 7 | [`supabase/migrations/20260322180000_orders_order_spec.sql`](supabase/migrations/20260322180000_orders_order_spec.sql) | Cột `order_spec` + COMMENT + UPDATE NULL. |
+
+**Phụ thuộc:** toàn bộ migration trên giả định **`public.orders` (và tối thiểu RLS/policies cơ bản)** đã có từ bước tạo CSDL ban đầu hoặc từ snapshot. DB tạo **mới hoàn toàn** bằng `schema.sql` / `reset_all.sql` đã gồm trạng thái cuối — **không cần** chạy lại từng migration (trừ khi bạn cố tình chỉ áp migration lên DB trống không qua snapshot; khi đó cần migration tạo bảng — hiện tại bảng được tạo bằng snapshot hoặc tay).
+
+### 1.2 Checklist deploy (chỉ SQL Editor)
+
+1. **Backup** nếu production có dữ liệu (export hoặc snapshot).
+2. **SQL Editor** → New query → mở từng file trong mục 1.1 **theo thứ tự** → Run (hoặc gộp nhiều file vào một query nếu bạn chắc không trùng `CREATE`/policy).
+3. **Xác minh nhanh:** cột `orders` (`print_color`, `print_sides`, `order_spec`), policy anon insert/select, hàm `match_orders_by_id_prefix` (cho SePay).
+4. **(Tuỳ chọn)** Trong Supabase Dashboard → SQL → **History**, lưu **link hoặc query id** của lần chạy production vào ghi chú nội bộ (git không lưu được history Dashboard).
+
+### 1.3 Supabase CLI (tuỳ chọn)
+
+File [`supabase/config.toml`](supabase/config.toml) phục vụ `supabase link`, `supabase db push`, `supabase db reset` (local). Sau khi cài [Supabase CLI](https://supabase.com/docs/guides/cli):
+
+1. `supabase login`
+2. `supabase link --project-ref <project-ref>` (lấy `project-ref` tại **Project Settings → General**).
+3. `supabase db push` để áp các file trong `supabase/migrations/` lên project đã link.
+
+`project_id` trong `config.toml` dùng cho **stack local** (Docker); có thể khác `project-ref` remote. Nếu `db reset` báo lỗi seed, kiểm tra [`supabase/seed.sql`](supabase/seed.sql).
+
+---
+
+File **`supabase/schema.sql`** chứa toàn bộ định nghĩa CSDL của dự án (snapshot).
 
 ### Cách 1: Tạo mới (project chưa có bảng của QR2Print)
 

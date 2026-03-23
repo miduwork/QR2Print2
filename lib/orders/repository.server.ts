@@ -1,10 +1,10 @@
 import type { PostgrestError } from "@supabase/supabase-js";
-import type { OrderInsert } from "@/lib/types";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { OrderInsert } from "./types";
 
 /** Cột trả về cho GET /api/orders/[id] (trang thanh toán). */
 const ORDER_PAYMENT_SELECT =
-  "id, customer_name, total_pages, page_count, total_price, copies, delivery_method, delivery_address, shipping_fee, payment_status";
+  "id, customer_name, total_pages, page_count, total_price, copies, delivery_method, delivery_address, shipping_fee, payment_status, print_color, print_sides, order_spec";
 
 export type OrderPaymentRow = {
   id: string;
@@ -17,6 +17,9 @@ export type OrderPaymentRow = {
   delivery_address: string | null;
   shipping_fee: number | null;
   payment_status: string | null;
+  print_color: string | null;
+  print_sides: string | null;
+  order_spec: Record<string, unknown> | null;
 };
 
 export type GetOrderByIdResult =
@@ -63,14 +66,12 @@ function logOrdersServerInsertError(context: string, error: PostgrestError) {
 
 /**
  * Insert đơn (service role).
- * Bỏ print_color / print_sides nếu schema chưa có cột (đồng bộ với lib/orders/repository.ts).
  */
 export async function insertOrderWithServiceRole(
   order: OrderInsert,
 ): Promise<{ error: PostgrestError | null }> {
   const supabase = createAdminClient();
-  const { print_color: _pc, print_sides: _ps, ...insertPayload } = order;
-  const { error } = await supabase.from("orders").insert(insertPayload);
+  const { error } = await supabase.from("orders").insert(order);
   if (error) logOrdersServerInsertError("insertOrderWithServiceRole", error);
   return { error };
 }

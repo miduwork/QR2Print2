@@ -4,6 +4,7 @@ import {
   PRINT_SIDES_LABEL,
 } from "@/lib/orders/printOptions";
 import { ChoiceRadioGroup } from "./ChoiceRadioGroup";
+import { formFieldHintClass } from "./formStyles";
 
 type Props = {
   printColor: PrintColor;
@@ -33,8 +34,8 @@ export function PrintOptions({
         getOptionLabel={(c) => PRINT_COLOR_LABEL[c]}
         disabled={disabled}
         hint={
-          <p className="mt-1 text-xs text-slate-500">
-            Mặc định: in đen trắng · Tạm thời tính giá như nhau
+          <p className={formFieldHintClass}>
+            Giá theo hệ số màu trong cấu hình (thường màu cao hơn đen trắng).
           </p>
         }
       />
@@ -47,8 +48,8 @@ export function PrintOptions({
         getOptionLabel={(s) => PRINT_SIDES_LABEL[s]}
         disabled={disabled}
         hint={
-          <p className="mt-1 text-xs text-slate-500">
-            Mặc định: in 2 mặt · Tạm thời tính giá như nhau
+          <p className={formFieldHintClass}>
+            Giá theo hệ số 1 mặt / 2 mặt trong cấu hình.
           </p>
         }
       />

@@ -7,7 +7,11 @@ export const DELIVERY_METHOD_LABEL: Record<DeliveryMethod, string> = {
 
 export const SHIPPING_FEE_DELIVERY = 20_000;
 
-export function getShippingFee(method: DeliveryMethod): number {
-  return method === "delivery" ? SHIPPING_FEE_DELIVERY : 0;
+export function getShippingFee(
+  method: DeliveryMethod,
+  options?: { shippingFeeDelivery?: number },
+): number {
+  if (method !== "delivery") return 0;
+  return options?.shippingFeeDelivery ?? SHIPPING_FEE_DELIVERY;
 }
 

@@ -18,8 +18,41 @@ export const selectClass =
 export const sectionLabelClass =
   "mb-1 block text-sm font-medium text-foreground-muted";
 
+/**
+ * Dấu * trên nhãn trường bắt buộc.
+ * Dùng chung mọi form (trang chủ, đăng nhập, thanh toán nếu có field bắt buộc, v.v.).
+ */
+export const formRequiredMarkClass = "text-red-600";
+
+/** Chữ gợi ý phụ (không margin — ghép với mt-* tại chỗ) */
+export const formFieldHintTextClass = "text-xs text-placeholder";
+
+/** Gợi ý dưới ô nhập */
+export const formFieldHintClass = `mt-1 ${formFieldHintTextClass}`;
+
+export const formFieldHintSpacedClass = `mt-1.5 ${formFieldHintTextClass}`;
+
+/** Tiêu đề nhóm con trong form (vd. Ruột / Bìa) */
+export const formSubsectionTitleClass =
+  "mb-2 text-sm font-semibold text-foreground";
+
+/** Khối nhóm field có viền nền nhẹ (trong card) */
+export const formNestedPanelClass =
+  "space-y-4 rounded-control border border-border/80 bg-muted/30 p-4";
+
+/** Lưới segment: 2 / 3 / 4 cột (dùng với `SegmentedControl`) */
+export const segmentedControlGridClass = "grid grid-cols-2 gap-2";
+
+export const segmentedControlGrid3Class = "grid grid-cols-3 gap-2";
+
+export const segmentedControlGrid4Class = "grid grid-cols-4 gap-2";
+
+/** Ô hiển thị chỉ đọc (vd. tỉnh cố định) — cùng nhịp với input */
+export const formReadOnlyBoxClass =
+  "rounded-xl border border-border bg-muted/80 px-4 py-3 text-sm text-foreground";
+
 export function choiceButtonClass(selected: boolean): string {
-  return `rounded-control border px-4 py-3 text-sm font-medium transition ${
+  return `rounded-control border px-4 py-3 text-sm font-medium transition disabled:opacity-50 ${
     selected
       ? "border-primary bg-primary-muted text-primary-foreground"
       : "border-border bg-surface text-foreground-muted hover:bg-muted"
@@ -93,6 +126,10 @@ export const formNeutralAlertClass =
 export const formAlertSpinnerClass =
   "mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary/40 border-t-transparent";
 
+/** Spinner toàn trang (admin loading). */
+export const adminPageSpinnerClass =
+  "inline-block h-8 w-8 animate-spin rounded-full border-2 border-focusRing border-t-transparent";
+
 export const authFooterNoteClass = "mt-4 text-center text-xs text-placeholder";
 
 /* --- Admin shell (cùng token) --- */
@@ -113,9 +150,9 @@ export const adminMainContentClass = "mx-auto w-full px-4 py-8 sm:px-6";
 /** Link accent (SĐT, file, footer). */
 export const linkAccentClass = "text-primary hover:underline";
 
-/** Hàng bảng desktop. */
+/** Hàng bảng desktop (`group` cho ô sticky nền hover). */
 export const tableRowClass =
-  "border-b border-border last:border-0 hover:bg-muted/50";
+  "group border-b border-border last:border-0 hover:bg-muted/50";
 
 /** Khối bọc bảng có scroll (desktop). */
 export const adminTableContainerClass =
@@ -132,6 +169,22 @@ export const adminEmptyStateCardClass =
 /** Ô thead bảng admin (sticky). */
 export const adminTableTheadCellClass =
   "sticky top-0 z-10 border-b border-border bg-muted/95 font-semibold text-foreground-muted shadow-sm backdrop-blur-sm";
+
+/** Thead: ô góc trên–trái (sticky top + left) — cột Khách. */
+export const adminTableTheadStickyLeftClass =
+  "sticky top-0 left-0 z-[25] border-b border-border bg-muted/95 font-semibold text-foreground-muted shadow-[4px_0_12px_-4px_rgba(0,0,0,0.12)] backdrop-blur-sm";
+
+/** Thead: ô góc trên–phải (sticky top + right) — cột Thao tác. */
+export const adminTableTheadStickyRightClass =
+  "sticky top-0 right-0 z-[25] border-b border-border bg-muted/95 font-semibold text-foreground-muted shadow-[-4px_0_12px_-4px_rgba(0,0,0,0.12)] backdrop-blur-sm";
+
+/** Body: cột Khách — sticky trái, nền theo hover hàng (group trên &lt;tr&gt;). */
+export const adminTableBodyStickyLeftClass =
+  "sticky left-0 z-[15] bg-surface shadow-[4px_0_12px_-4px_rgba(0,0,0,0.1)] group-hover:bg-muted/50";
+
+/** Body: cột Thao tác — sticky phải. */
+export const adminTableBodyStickyRightClass =
+  "sticky right-0 z-[15] bg-surface shadow-[-4px_0_12px_-4px_rgba(0,0,0,0.1)] group-hover:bg-muted/50";
 
 /** Skeleton thanh toán / loading. */
 export const paymentSkeletonStrongClass = "animate-pulse rounded-full bg-border";

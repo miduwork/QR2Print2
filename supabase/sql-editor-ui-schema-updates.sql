@@ -1,0 +1,12 @@
+-- =============================================================================
+-- QR2Print — Không còn nội dung SQL trùng lặp (alias / con trỏ tài liệu).
+--
+-- Các thay đổi schema tăng dần nằm trong supabase/migrations/ (sắp xếp theo tên file).
+-- Để vá DB đã từng tồn tại trước khi có cột in / order_spec, chạy lần lượt trong
+-- SQL Editor (copy từng file theo thứ tự trong supabase-setup.md):
+--   - 20250322100000_add_print_options.sql
+--   - 20260322180000_orders_order_spec.sql
+--
+-- Snapshot tạo mới / reset: dùng supabase/schema.sql hoặc supabase/reset_all.sql
+-- (đã gồm các cột trên trong CREATE TABLE; không cần chạy lại các migration đó).
+-- =============================================================================

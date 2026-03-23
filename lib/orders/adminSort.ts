@@ -1,4 +1,4 @@
-import { ORDER_PRIORITY, type Order } from "@/lib/types";
+import { ORDER_PRIORITY, type Order } from "./types";
 
 const PRIORITY_WEIGHT: Record<string, number> = {
   [ORDER_PRIORITY.HIGH]: 3,

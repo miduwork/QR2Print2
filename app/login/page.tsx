@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { SkeletonBar } from "@/components/feedback/SkeletonBar";
 import {
   authFooterNoteClass,
   authShellClass,
@@ -18,7 +19,7 @@ import {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/admin";
+  const next = searchParams.get("next") ?? "/admin/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -58,7 +59,7 @@ function LoginForm() {
     <main className={authShellClass}>
       <div className="w-full max-w-sm">
         <div className={formCardClass}>
-          <h1 className={authTitleClass}>Đăng nhập Admin</h1>
+          <h1 className={authTitleClass}>Đăng nhập quản trị</h1>
           <p className={authSubtitleClass}>
             QR2Print · Quản lý đơn hàng
           </p>
@@ -119,7 +120,7 @@ function LoginForm() {
         </div>
 
         <p className={authFooterNoteClass}>
-          Chỉ tài khoản Admin được cấp quyền.
+          Chỉ tài khoản quản trị được cấp quyền.
         </p>
       </div>
     </main>
@@ -128,11 +129,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <main className={authShellClass}>
-        <div className="h-8 w-48 animate-pulse rounded-full bg-border" />
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <main className={authShellClass}>
+          <SkeletonBar variant="strong" className="h-8 w-48" />
+        </main>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

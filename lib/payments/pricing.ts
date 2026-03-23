@@ -13,15 +13,21 @@ export function calculateTotal(pages: number, copies: number = 1): number {
   return pages * copies * getPricePerPage();
 }
 
-export function calculateGrandTotal(
-  pages: number,
-  copies: number,
+/** Một nguồn cho freeship + ship (server tạo đơn + ước lượng client). */
+export function grandTotalFromPrintSubtotal(
+  printSubtotal: number,
   deliveryMethod: DeliveryMethod,
+  options?: {
+    freeshipThresholdVnd?: number;
+    shippingFeeDelivery?: number;
+  },
 ): { printSubtotal: number; shippingFee: number; total: number } {
-  const printSubtotal = calculateTotal(pages, copies);
-  let shippingFee = getShippingFee(deliveryMethod);
+  const threshold = options?.freeshipThresholdVnd ?? FREESHIP_THRESHOLD_VND;
+  let shippingFee = getShippingFee(deliveryMethod, {
+    shippingFeeDelivery: options?.shippingFeeDelivery,
+  });
 
-  if (printSubtotal >= FREESHIP_THRESHOLD_VND) {
+  if (printSubtotal >= threshold) {
     shippingFee = 0;
   }
   return {
@@ -29,5 +35,14 @@ export function calculateGrandTotal(
     shippingFee,
     total: printSubtotal + shippingFee,
   };
+}
+
+export function calculateGrandTotal(
+  pages: number,
+  copies: number,
+  deliveryMethod: DeliveryMethod,
+): { printSubtotal: number; shippingFee: number; total: number } {
+  const printSubtotal = calculateTotal(pages, copies);
+  return grandTotalFromPrintSubtotal(printSubtotal, deliveryMethod);
 }
 

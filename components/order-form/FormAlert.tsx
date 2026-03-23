@@ -1,8 +1,8 @@
+import { Spinner } from "@/components/feedback/Spinner";
 import {
   formErrorAlertClass,
   formNeutralAlertClass,
   formSuccessAlertClass,
-  formAlertSpinnerClass,
 } from "./formStyles";
 
 type FormStatus = "idle" | "loading" | "success" | "error";
@@ -23,12 +23,7 @@ export function FormAlert({ status, message }: Props) {
 
   return (
     <div role="alert" className={alertClassForStatus(status)}>
-      {status === "loading" && (
-        <span
-          className={formAlertSpinnerClass}
-          aria-hidden
-        />
-      )}
+      {status === "loading" && <Spinner size="sm" />}
       {message}
     </div>
   );

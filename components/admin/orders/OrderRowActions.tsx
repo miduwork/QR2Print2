@@ -1,4 +1,5 @@
 import { ORDER_STATUS } from "@/lib/orders";
+import { orderShortCode } from "@/lib/orders/orderShortCode";
 import type { Order } from "@/lib/orders/types";
 
 type Props = {
@@ -36,6 +37,8 @@ export function OrderRowActions({
 }: Props) {
   const cls = buttonClass[size];
   const disabled = updatingId === order.id;
+  const shortId = orderShortCode(order.id);
+  const nameHint = order.customer_name;
 
   return (
     <>
@@ -53,6 +56,7 @@ export function OrderRowActions({
             }
             disabled={disabled}
             className={cls.complete}
+            aria-label={`Hoàn thành đơn ${shortId} · ${nameHint}`}
           >
             Hoàn thành
           </button>
@@ -70,6 +74,7 @@ export function OrderRowActions({
           }
           disabled={disabled}
           className={cls.deliver}
+          aria-label={`Đánh dấu đã giao hàng đơn ${shortId} · ${nameHint}`}
         >
           Đã giao hàng
         </button>

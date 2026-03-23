@@ -1,29 +1,30 @@
-import { inputClass, labelClass, textareaClass } from "./formStyles";
+import {
+  formRequiredMarkClass,
+  inputClass,
+  labelClass,
+  textareaClass,
+} from "./formStyles";
 
 type Props = {
   customerName: string;
   phone: string;
-  note: string;
   onCustomerNameChange: (v: string) => void;
   onPhoneChange: (v: string) => void;
-  onNoteChange: (v: string) => void;
   disabled: boolean;
 };
 
 export function CustomerFields({
   customerName,
   phone,
-  note,
   onCustomerNameChange,
   onPhoneChange,
-  onNoteChange,
   disabled,
 }: Props) {
   return (
     <>
       <div>
         <label htmlFor="name" className={labelClass}>
-          Tên khách hàng <span className="text-red-500">*</span>
+          Tên khách hàng <span className={formRequiredMarkClass}>*</span>
         </label>
         <input
           id="name"
@@ -39,7 +40,7 @@ export function CustomerFields({
 
       <div>
         <label htmlFor="phone" className={labelClass}>
-          Số điện thoại <span className="text-red-500">*</span>
+          Số điện thoại <span className={formRequiredMarkClass}>*</span>
         </label>
         <input
           id="phone"
@@ -52,21 +53,31 @@ export function CustomerFields({
           autoComplete="tel"
         />
       </div>
-
-      <div>
-        <label htmlFor="note" className={labelClass}>
-          Ghi chú
-        </label>
-        <textarea
-          id="note"
-          value={note}
-          onChange={(e) => onNoteChange(e.target.value)}
-          placeholder="Yêu cầu in màu, giao hàng trước 17h..."
-          rows={3}
-          className={textareaClass}
-          disabled={disabled}
-        />
-      </div>
     </>
+  );
+}
+
+type NoteProps = {
+  note: string;
+  onNoteChange: (v: string) => void;
+  disabled: boolean;
+};
+
+export function CustomerNoteField({ note, onNoteChange, disabled }: NoteProps) {
+  return (
+    <div>
+      <label htmlFor="note" className={labelClass}>
+        Ghi chú
+      </label>
+      <textarea
+        id="note"
+        value={note}
+        onChange={(e) => onNoteChange(e.target.value)}
+        placeholder="Yêu cầu in màu, giao hàng trước 17h..."
+        rows={3}
+        className={textareaClass}
+        disabled={disabled}
+      />
+    </div>
   );
 }

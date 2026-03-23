@@ -1,6 +1,6 @@
 /**
- * API công khai gọn cho phần UI import từ `@/lib/orders`.
- * Logic nội bộ (createOrder, repository, …) import trực tiếp file con.
+ * API công khai cho UI: import từ `@/lib/orders` (types, print options, printJobSpec).
+ * Logic nội bộ (createOrder, repository, …) có thể import trực tiếp file con.
  */
 export type { Order, OrderInsert } from "./types";
 export { ORDER_PRIORITY, ORDER_STATUS } from "./types";
@@ -10,3 +10,4 @@ export {
   type PrintColor,
   type PrintSides,
 } from "./printOptions";
+export * from "./printJobSpec";

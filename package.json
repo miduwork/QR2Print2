@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:pricing": "vitest run lib/payments"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -16,7 +17,8 @@
     "next": "14.2.18",
     "pdf-lib": "^1.17.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -1,4 +1,5 @@
 import { ORDER_PRIORITY } from "@/lib/orders";
+import { orderShortCode } from "@/lib/orders/orderShortCode";
 import type { Order } from "@/lib/orders/types";
 
 type Props = {
@@ -24,12 +25,14 @@ export function OrderPrioritySelect({
   variant = "table",
   className,
 }: Props) {
+  const shortId = orderShortCode(order.id);
   return (
     <select
       value={order.priority}
       onChange={(e) => onPriorityChange(order.id, e.target.value)}
       disabled={updatingId === order.id}
       className={className ?? variantClass[variant]}
+      aria-label={`Ưu tiên đơn ${shortId} · ${order.customer_name}`}
     >
       <option value={ORDER_PRIORITY.LOW}>{ORDER_PRIORITY.LOW}</option>
       <option value={ORDER_PRIORITY.NORMAL}>{ORDER_PRIORITY.NORMAL}</option>

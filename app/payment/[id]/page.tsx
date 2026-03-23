@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -8,7 +9,13 @@ import { subscribeOrderUpdates } from "@/lib/orders/realtime";
 import { PICKUP_ADDRESS_DISPLAY } from "@/lib/config/business";
 import { buildVietQRUrl } from "@/lib/payments/vietqr";
 import { DELIVERY_METHOD_LABEL } from "@/lib/orders/delivery";
+import {
+  formatOrderSpecSummary,
+  isOrderSpecV1,
+} from "@/lib/orders/printJobSpec";
 import { PRINT_COLOR_LABEL, PRINT_SIDES_LABEL } from "@/lib/orders/printOptions";
+import { BookPrintPricingBreakdown } from "@/components/order-form/BookPrintPricingBreakdown";
+import { PaymentPageSkeleton } from "@/components/feedback/PaymentPageSkeleton";
 import {
   authTitleClass,
   formPageContentMaxMdClass,
@@ -22,8 +29,6 @@ import {
   formSectionCardMbClass,
   formSectionOverlineClass,
   linkAccentClass,
-  paymentSkeletonMutedClass,
-  paymentSkeletonStrongClass,
 } from "@/components/order-form/formStyles";
 
 const PAYMENT_STATUS_PAID = "Đã thanh toán";
@@ -168,41 +173,7 @@ export default function PaymentPage() {
   }, [id]);
 
   if (loading) {
-    return (
-      <main className={formPageShellClass}>
-        <div className={formPageContentMaxMdClass}>
-          <div className="mb-6 text-center">
-            <div className={`mx-auto mb-3 h-6 w-32 ${paymentSkeletonStrongClass}`} />
-            <div className={`mx-auto h-4 w-40 ${paymentSkeletonMutedClass}`} />
-          </div>
-
-          <div className={formSectionCardMbClass}>
-            <div className={`mb-4 h-4 w-24 ${paymentSkeletonStrongClass}`} />
-            <div className="space-y-3">
-              <div className="flex justify-between">
-                <div className={`h-3 w-20 ${paymentSkeletonMutedClass}`} />
-                <div className={`h-3 w-24 ${paymentSkeletonMutedClass}`} />
-              </div>
-              <div className="flex justify-between">
-                <div className={`h-3 w-16 ${paymentSkeletonMutedClass}`} />
-                <div className={`h-3 w-32 ${paymentSkeletonMutedClass}`} />
-              </div>
-              <div className="flex justify-between">
-                <div className={`h-3 w-24 ${paymentSkeletonMutedClass}`} />
-                <div className={`h-3 w-16 ${paymentSkeletonMutedClass}`} />
-              </div>
-            </div>
-          </div>
-
-          <div className={`${formSectionCardClass} flex flex-col items-center`}>
-            <div className={`mb-4 h-4 w-32 ${paymentSkeletonStrongClass}`} />
-            <div className={`h-48 w-48 rounded-xl ${paymentSkeletonMutedClass}`} />
-            <div className={`mt-3 h-3 w-40 ${paymentSkeletonMutedClass}`} />
-            <div className={`mt-5 h-10 w-full rounded-xl ${paymentSkeletonMutedClass}`} />
-          </div>
-        </div>
-      </main>
-    );
+    return <PaymentPageSkeleton />;
   }
 
   if (error || !order) {
@@ -279,18 +250,37 @@ export default function PaymentPage() {
                 {order.copies ?? 1}
               </dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-placeholder">Loại in</dt>
-              <dd className="font-medium text-foreground">
-                {PRINT_COLOR_LABEL[(order.print_color ?? "bw") as keyof typeof PRINT_COLOR_LABEL]}
-              </dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-placeholder">In 2 mặt / 1 mặt</dt>
-              <dd className="font-medium text-foreground">
-                {PRINT_SIDES_LABEL[(order.print_sides ?? "double") as keyof typeof PRINT_SIDES_LABEL]}
-              </dd>
-            </div>
+            {order.order_spec != null && isOrderSpecV1(order.order_spec) ? (
+              <div className="flex flex-col gap-1 border-t border-border pt-3 sm:flex-row sm:justify-between">
+                <dt className="text-placeholder">Chi tiết in</dt>
+                <dd className="max-w-[min(100%,240px)] text-right text-sm font-medium leading-snug text-foreground">
+                  {formatOrderSpecSummary(order.order_spec, {
+                    printColor: order.print_color,
+                    printSides: order.print_sides,
+                  })}
+                </dd>
+              </div>
+            ) : (
+              <>
+                <div className="flex justify-between">
+                  <dt className="text-placeholder">Loại in</dt>
+                  <dd className="font-medium text-foreground">
+                    {PRINT_COLOR_LABEL[(order.print_color ?? "bw") as keyof typeof PRINT_COLOR_LABEL]}
+                  </dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-placeholder">In 2 mặt / 1 mặt</dt>
+                  <dd className="font-medium text-foreground">
+                    {PRINT_SIDES_LABEL[(order.print_sides ?? "double") as keyof typeof PRINT_SIDES_LABEL]}
+                  </dd>
+                </div>
+              </>
+            )}
+            {order.order_spec != null &&
+              isOrderSpecV1(order.order_spec) &&
+              order.order_spec.kind === "book" && (
+                <BookPrintPricingBreakdown order={order} variant="rows" />
+              )}
             <div className="flex justify-between">
               <dt className="text-placeholder">Hình thức giao hàng</dt>
               <dd className="font-medium text-foreground">
@@ -346,10 +336,11 @@ export default function PaymentPage() {
               </p>
             </div>
           )}
-          {/* eslint-disable-next-line @next/next/no-img-element -- QR URL from VietQR, external and dynamic */}
-          <img
+          <Image
             src={qrUrl}
             alt="Mã QR thanh toán"
+            width={192}
+            height={192}
             className="h-48 w-48 rounded-lg bg-surface object-contain"
             onError={() => setQrImageFailed(true)}
           />

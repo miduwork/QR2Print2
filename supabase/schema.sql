@@ -12,16 +12,16 @@
 drop policy if exists "Allow upload to documents" on storage.objects;
 drop policy if exists "Allow public read documents" on storage.objects;
 
--- 1.2 Xóa bảng transactions trước (có khóa ngoại tới orders)
-drop table if exists public.transactions;
-
--- 1.3 Xóa bảng orders
-drop table if exists public.orders;
-
--- 1.5 Xóa policy đọc đơn thanh toán (nếu còn)
+-- 1.2 Xóa policy đọc đơn thanh toán (nếu còn)
 drop policy if exists "Khách xem đơn thanh toán" on public.orders;
 drop policy if exists "anon_select_orders_for_realtime" on public.orders;
 drop policy if exists "anon_insert_orders_public_form" on public.orders;
+
+-- 1.3 Xóa bảng transactions trước (có khóa ngoại tới orders)
+drop table if exists public.transactions;
+
+-- 1.4 Xóa bảng orders
+drop table if exists public.orders;
 
 -- 1.4 (Tùy chọn) Xóa bucket documents và mọi file trong đó
 -- Chỉ bỏ comment 2 dòng dưới nếu bạn muốn xóa cả file đã upload.
@@ -54,12 +54,14 @@ create table public.orders (
   total_price int4,
   payment_status text default 'Chưa thanh toán',
   print_color text default 'bw',
-  print_sides text default 'double'
+  print_sides text default 'double',
+  order_spec jsonb default '{}'::jsonb
 );
 
 -- Indexes hỗ trợ truy vấn nhanh theo trạng thái
 create index if not exists idx_orders_status on public.orders(status);
 create index if not exists idx_orders_payment_status on public.orders(payment_status);
+create index if not exists idx_orders_created_at on public.orders(created_at desc);
 
 comment on table public.orders is 'Đơn in – form khách gửi, admin quản lý, webhook cập nhật thanh toán';
 
@@ -77,7 +79,7 @@ create policy "authenticated_admin_orders_full_access"
 create policy "anon_select_orders_for_realtime"
   on public.orders for select to anon using (true);
 
--- Form khách (trang chủ): insert qua anon — khớp lib/orders/repository.ts
+-- Form khách (trang chủ): insert qua POST /api/orders (service role server)
 create policy "anon_insert_orders_public_form"
   on public.orders for insert to anon
   with check (true);
@@ -130,8 +132,135 @@ alter publication supabase_realtime add table public.orders;
 alter table public.orders replica identity full;
 
 -- -----------------------------------------------------------------------------
--- PHẦN 3: Migration – thêm cột in đen trắng/màu, 2 mặt/1 mặt (chạy nếu bảng orders đã có sẵn)
--- Chạy trong SQL Editor nếu bạn đã có bảng orders từ trước, không cần chạy PHẦN 1–2.
+-- Dashboard admin stats RPC (gom nhiều count thành một round-trip)
 -- -----------------------------------------------------------------------------
--- alter table public.orders add column if not exists print_color text default 'bw';
--- alter table public.orders add column if not exists print_sides text default 'double';
+create or replace function public.admin_dashboard_stats(
+  p_now timestamptz default now()
+)
+returns jsonb
+language sql
+security invoker
+set search_path = public
+as $$
+with bounds as (
+  select
+    (p_now at time zone 'Asia/Ho_Chi_Minh')::date as today_vn
+),
+date_window as (
+  select
+    (today_vn - 6) as start_date_vn,
+    today_vn as end_date_vn,
+    ((today_vn - 6)::timestamp at time zone 'Asia/Ho_Chi_Minh') as start_utc,
+    ((today_vn + 1)::timestamp at time zone 'Asia/Ho_Chi_Minh') as end_utc_exclusive
+  from bounds
+),
+snapshot as (
+  select
+    count(*) filter (
+      where payment_status is null or payment_status <> 'Đã thanh toán'
+    )::bigint as unpaid_count,
+    count(*) filter (
+      where status = 'Chưa hoàn thành'
+    )::bigint as pending_print_count,
+    count(*) filter (
+      where priority = 'Ưu tiên cao' and status = 'Chưa hoàn thành'
+    )::bigint as high_priority_pending_count,
+    count(*) filter (
+      where status = 'Đã hoàn thành'
+    )::bigint as awaiting_delivery_count,
+    max(created_at) as max_created_at
+  from public.orders
+),
+trend_raw as (
+  select
+    (o.created_at at time zone 'Asia/Ho_Chi_Minh')::date as day_vn,
+    count(*)::bigint as cnt
+  from public.orders o
+  cross join date_window w
+  where o.created_at >= w.start_utc
+    and o.created_at < w.end_utc_exclusive
+  group by 1
+),
+trend as (
+  select
+    d.day_vn,
+    coalesce(r.cnt, 0)::bigint as cnt
+  from date_window w
+  cross join lateral generate_series(
+    w.start_date_vn,
+    w.end_date_vn,
+    interval '1 day'
+  ) as d(day_vn)
+  left join trend_raw r
+    on r.day_vn = d.day_vn
+  order by d.day_vn
+),
+recent_orders as (
+  select
+    o.id,
+    o.created_at,
+    o.customer_name,
+    o.status,
+    o.priority
+  from public.orders o
+  order by o.created_at desc
+  limit 8
+),
+paid_window as (
+  select
+    count(*)::bigint as paid_orders_last_7_days
+  from public.orders o
+  cross join date_window w
+  where o.payment_status = 'Đã thanh toán'
+    and o.created_at >= w.start_utc
+    and o.created_at < w.end_utc_exclusive
+)
+select jsonb_build_object(
+  'ordersToday', coalesce((select cnt from trend order by day_vn desc limit 1), 0),
+  'unpaidCount', coalesce((select unpaid_count from snapshot), 0),
+  'pendingPrintCount', coalesce((select pending_print_count from snapshot), 0),
+  'highPriorityPendingCount', coalesce((select high_priority_pending_count from snapshot), 0),
+  'awaitingDeliveryCount', coalesce((select awaiting_delivery_count from snapshot), 0),
+  'recent_orders', coalesce(
+    (
+      select jsonb_agg(
+        jsonb_build_object(
+          'id', id,
+          'created_at', created_at,
+          'customer_name', customer_name,
+          'status', status,
+          'priority', priority
+        )
+        order by created_at desc
+      )
+      from recent_orders
+    ),
+    '[]'::jsonb
+  ),
+  'orders_by_day', coalesce(
+    (
+      select jsonb_agg(
+        jsonb_build_object(
+          'date', to_char(day_vn, 'YYYY-MM-DD'),
+          'count', cnt
+        )
+        order by day_vn
+      )
+      from trend
+    ),
+    '[]'::jsonb
+  ),
+  'paid_orders_last_7_days', coalesce((select paid_orders_last_7_days from paid_window), 0),
+  'max_created_at', (select max_created_at from snapshot)
+);
+$$;
+
+grant execute on function public.admin_dashboard_stats(timestamptz)
+  to authenticated;
+
+-- -----------------------------------------------------------------------------
+-- PHẦN 3: DB cũ (đã có orders trước khi có cột in / order_spec)
+-- Không chạy khi đã chạy PHẦN 1–2 ở trên. Các ALTER idempotent nằm trong
+-- supabase/migrations/20250322100000_add_print_options.sql và
+-- supabase/migrations/20260322180000_orders_order_spec.sql — xem supabase-setup.md.
+-- -----------------------------------------------------------------------------

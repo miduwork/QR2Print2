@@ -1,3 +1,4 @@
+/** @see README — Kiến trúc Supabase client (Auth browser + cookie). */
 import { createBrowserClient } from "@supabase/ssr";
 
 export function createClient() {

@@ -1,9 +1,12 @@
 import { uploadPublicDocument } from "@/lib/data/storage";
+import { loadNormalizedAppConfigForOrder } from "@/lib/orders/appConfig.server";
 import {
   buildNewOrderId,
   buildOrderPayload,
+  buildOrderSpecFromSnapshot,
   buildStorageObjectPath,
-  resolveDocumentTotalPages,
+  printColorSidesForDb,
+  resolveOrderTotalPages,
   validateOrderForm,
   type OrderFormSnapshot,
 } from "@/lib/orders/createOrder";
@@ -42,14 +45,17 @@ export async function executeCreateCustomerOrderFromFile(
   snap: OrderFormSnapshot,
 ): Promise<CreateCustomerOrderResult> {
   const supabase = createAdminClient();
-  const basics = validateOrderForm(snap, file);
+  const { app } = await loadNormalizedAppConfigForOrder(supabase);
+  const basics = validateOrderForm(snap, file, {
+    deliveryCity: app.delivery.city,
+  });
   if (!basics.ok) {
     return { ok: false, message: basics.message };
   }
 
-  const pages = await resolveDocumentTotalPages(
+  const pages = await resolveOrderTotalPages(
     file,
-    snap.pageCountInput,
+    snap,
     getPdfPageCountFromFile,
   );
   if (!pages.ok) {
@@ -69,6 +75,8 @@ export async function executeCreateCustomerOrderFromFile(
     return { ok: false, message: upload.message };
   }
 
+  const spec = buildOrderSpecFromSnapshot(snap);
+  const { printColor, printSides } = printColorSidesForDb(snap);
   const order = buildOrderPayload({
     id: orderId,
     customerName: snap.customerName,
@@ -81,8 +89,11 @@ export async function executeCreateCustomerOrderFromFile(
     deliveryMethod: snap.deliveryMethod,
     deliveryDetail: snap.deliveryDetail,
     deliveryDistrict: snap.deliveryDistrict,
-    printColor: snap.printColor,
-    printSides: snap.printSides,
+    printColor,
+    printSides,
+    orderSpec: spec,
+    pricing: app.pricing,
+    deliveryConfig: app.delivery,
   });
 
   return persistOrder(order);
@@ -101,6 +112,7 @@ export async function executeCreateCustomerOrderFromStoragePath(
   }
 
   const supabase = createAdminClient();
+  const { app } = await loadNormalizedAppConfigForOrder(supabase);
   const { data: blob, error: dlError } = await supabase.storage
     .from(ORDER_DOCUMENT_BUCKET)
     .download(storagePath);
@@ -115,14 +127,16 @@ export async function executeCreateCustomerOrderFromStoragePath(
   const buffer = await blob.arrayBuffer();
   const file = new File([buffer], fileName, { type: blob.type });
 
-  const basics = validateOrderForm(snap, file);
+  const basics = validateOrderForm(snap, file, {
+    deliveryCity: app.delivery.city,
+  });
   if (!basics.ok) {
     return { ok: false, message: basics.message };
   }
 
-  const pages = await resolveDocumentTotalPages(
+  const pages = await resolveOrderTotalPages(
     file,
-    snap.pageCountInput,
+    snap,
     getPdfPageCountFromFile,
   );
   if (!pages.ok) {
@@ -135,6 +149,8 @@ export async function executeCreateCustomerOrderFromStoragePath(
     .getPublicUrl(storagePath);
   const fileUrl = pub.publicUrl;
 
+  const spec = buildOrderSpecFromSnapshot(snap);
+  const { printColor, printSides } = printColorSidesForDb(snap);
   const order = buildOrderPayload({
     id: orderId,
     customerName: snap.customerName,
@@ -147,8 +163,11 @@ export async function executeCreateCustomerOrderFromStoragePath(
     deliveryMethod: snap.deliveryMethod,
     deliveryDetail: snap.deliveryDetail,
     deliveryDistrict: snap.deliveryDistrict,
-    printColor: snap.printColor,
-    printSides: snap.printSides,
+    printColor,
+    printSides,
+    orderSpec: spec,
+    pricing: app.pricing,
+    deliveryConfig: app.delivery,
   });
 
   return persistOrder(order);

@@ -2,6 +2,28 @@
 
 ## Kiến trúc dữ liệu (Supabase + Next.js)
 
+### Kiến trúc Supabase client (file nào dùng khi nào)
+
+Dự án dùng **nhiều client** — không phải lỗi; mỗi file phục vụ một luồng. Tránh “gộp import” mà không đọc bảng dưới.
+
+| File | Mục đích | Gọi từ (ví dụ) |
+|------|----------|----------------|
+| [`lib/supabase.ts`](lib/supabase.ts) | Một instance **anon**, **không** gắn cookie — phù hợp Realtime trên client công khai | [`lib/orders/realtime.ts`](lib/orders/realtime.ts) → trang [`/payment/[id]`](app/payment/[id]/page.tsx) qua `subscribeOrderUpdates` |
+| [`lib/supabase/client.ts`](lib/supabase/client.ts) | `createBrowserClient` (`@supabase/ssr`) — đồng bộ session Auth với cookie | [`app/login/page.tsx`](app/login/page.tsx), [`AdminLogoutButton`](components/AdminLogoutButton.tsx) |
+| [`lib/supabase/server.ts`](lib/supabase/server.ts) | `createServerClient` + `cookies()` — API cần JWT admin | [`app/api/admin/orders`](app/api/admin/orders/route.ts), [`app/api/admin/orders/[id]`](app/api/admin/orders/[id]/route.ts) |
+| [`lib/supabase/admin.ts`](lib/supabase/admin.ts) | **Service role** — bỏ qua RLS | Webhook, insert đơn server, ký upload, … |
+| [`middleware.ts`](middleware.ts) | `createServerClient` trên request — refresh session, bảo vệ `/admin` và `/login` | — |
+
+**Tại sao trang thanh toán khác admin**
+
+- **Thanh toán (public, không đăng nhập):** Realtime chỉ cần **anon key** để subscribe cập nhật đơn; **không** cần session Supabase Auth trong cookie. Singleton [`lib/supabase.ts`](lib/supabase.ts) là **cố ý** — đơn giản, ổn định cho `channel`, tránh lẫn với luồng đăng nhập.
+- **Admin / đăng nhập:** Cần **cookie + JWT**; dùng [`lib/supabase/client.ts`](lib/supabase/client.ts) (trình duyệt) và [`lib/supabase/server.ts`](lib/supabase/server.ts) (API), cùng [`middleware.ts`](middleware.ts).
+
+**Không nên**
+
+- Đổi [`lib/orders/realtime.ts`](lib/orders/realtime.ts) sang `createClient` từ `lib/supabase/client.ts` chỉ để “thống nhất import” nếu chưa nắm hệ quả (lifecycle / cookie Auth khác singleton anon).
+- Dùng singleton [`lib/supabase.ts`](lib/supabase.ts) cho login hoặc thao tác admin — thiếu đồng bộ session với SSR.
+
 ### Khách (trang chủ, form đặt in)
 
 - **HTTP**: `POST /api/orders` ([app/api/orders/route.ts](app/api/orders/route.ts)).
@@ -10,9 +32,11 @@
 
 ### Admin (trang `/admin`)
 
-- **Browser**: [`createClient`](lib/supabase/client.ts) (`@supabase/ssr` + `NEXT_PUBLIC_*`) — session Supabase Auth trong cookie; **RLS** áp dụng theo JWT.
-- **Hook**: [`useOrdersList`](hooks/useOrdersList.ts) → [`listOrdersForAdmin` / `updateOrderForAdmin`](lib/orders/repository.ts).
-- Logic truy vấn dùng chung với [`/api/admin/orders`](app/api/admin/orders/route.ts) (GET/PATCH) khi cần client không phải web (mobile, audit server-side, v.v.).
+- **Browser**: session Supabase Auth trong cookie (`credentials` khi gọi API).
+- **Hook**: [`useOrdersList`](hooks/useOrdersList.ts) (context [`AdminOrdersProvider`](components/admin/AdminOrdersProvider.tsx)) gọi [`GET /api/admin/orders`](app/api/admin/orders/route.ts), [`GET /api/admin/stats`](app/api/admin/stats/route.ts) (thống kê + `max_created_at` cho badge), và [`GET` / `PATCH` `/api/admin/orders/[id]`](app/api/admin/orders/[id]/route.ts) — cùng logic với [`listOrdersForAdminWithClient` / `updateOrderForAdminWithClient`](lib/orders/adminOrderData.ts) trên server.
+- **Route UI:** **`/admin` → `/admin/orders`** (redirect); dashboard **`/admin/dashboard`**; chi tiết đơn **`/admin/orders/[id]`**. Điều hướng và badge « đơn mới » trong [`AdminShell`](components/admin/AdminShell.tsx).
+- **Lọc / tìm (danh sách):** trên trình duyệt — thanh toán (đã / chưa), trạng thái in, ô tìm theo SĐT, tên khách, hoặc 8 ký tự đầu mã đơn (UUID). Chi tiết: [`docs/ADMIN-PORTAL-PLAN.md`](docs/ADMIN-PORTAL-PLAN.md) §2 và §5.
+- **Export:** CSV từ đơn **đang hiển thị sau lọc** (client), UTF-8 có BOM — nút trên trang danh sách.
 
 ### Row Level Security (RLS)
 
@@ -25,12 +49,9 @@
 1. Trong Supabase Dashboard → Authentication → Users: tạo user admin và set **App metadata** → `role`: `admin` (JSON: `{ "role": "admin" }`).
 2. Biến môi trường: `.env.local` — xem [`.env.local.example`](.env.local.example).
 
-### Khi nào nên gom admin qua API tập trung
+### Mở rộng sau (admin API)
 
-- Audit log (ai đổi trạng thái, IP).
-- Mobile hoặc nhiều client cùng contract REST.
-- Rate limit, validation phức tạp, side-effect (email, webhook nội bộ).
-- Khi đó ưu tiên gọi [`/api/admin/orders`](app/api/admin/orders/route.ts) (hoặc Server Actions) sau khi kiểm tra session + role, thay vì nhân đôi query Supabase trên từng client.
+- Audit log, rate limit, side-effect — có thể bổ sung trong Route Handlers mà không đổi contract REST hiện tại.
 
 ---
 

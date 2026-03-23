@@ -32,6 +32,8 @@ export const FREESHIP_THRESHOLD_VND = parsePositiveIntEnv(
 );
 
 /** Chuỗi gợi ý freeship cho UI (định dạng theo locale). */
-export function getFreeshipHintText(): string {
-  return `Freeship cho đơn từ ${FREESHIP_THRESHOLD_VND.toLocaleString("vi-VN")} VNĐ`;
+export function getFreeshipHintText(
+  thresholdVnd: number = FREESHIP_THRESHOLD_VND,
+): string {
+  return `Freeship cho đơn từ ${thresholdVnd.toLocaleString("vi-VN")} VNĐ`;
 }

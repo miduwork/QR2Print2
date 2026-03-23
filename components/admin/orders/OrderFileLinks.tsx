@@ -1,4 +1,4 @@
-import { linkAccentClass } from "@/components/order-form/formStyles";
+import { linkAccentClass } from "@/components/admin/adminStyles";
 
 type Props = {
   fileUrl: string | null | undefined;
